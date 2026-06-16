@@ -46,10 +46,6 @@ pipeline {
                     // 1. 서버 빌드 포트는 5173 고정이므로 안전하게 치환 유지
                     def modifiedContent = originalContent.replaceAll(/(?<=\b)PORT=.*/, "PORT=5173")
 
-                    // 2. 컨테이너 외부 배포 환경을 위해 호스트 설정을 0.0.0.0으로 변경 (Health Check 통과용)
-                    modifiedContent = modifiedContent.replaceAll(/(?<=\b)END_POINT=.*/, "END_POINT=0.0.0.0")
-                    modifiedContent = modifiedContent.replaceAll(/(?<=\b)HOST=.*/, "HOST=0.0.0.0")
-
                     // 3. ★ 하이픈(-) 대신 언더바(_)를 사용하여 'project_dev'로 변경 ★
                     def dbName = (env.TARGET_BRANCH == 'main') ? 'project' : 'project_dev'
                     def renewModifiedContent = modifiedContent.replaceAll(/(?<=\b)DB_DATABASE=.*/, "DB_DATABASE=${dbName}")
@@ -172,7 +168,7 @@ sudo nginx -s reload
 
         stage('Health Check Service & Restore Nginx') {
             when { expression { env.CHANGE_ID == null } }
-            steps {
+            steps {a
                 script {
                     env.FAILED_STATE_NAME = 'Health Check Service & Restore Nginx'
 
@@ -180,32 +176,19 @@ sudo nginx -s reload
                     def nginxConfigFile = (env.TARGET_BRANCH == 'main') ? '/etc/nginx/conf.d/service-url.inc' : '/etc/nginx/conf.d/service-dev-url.inc'
 
                     // \$(seq ...) 는 원격 bash가 실행해야 하므로 작은따옴표 밖에 둔다.
-                    def healthCheckScript = """
-for i in \$(seq 1 12); do
-    if curl -s http://localhost:${servicePort}/api/health | grep -q 'success'; then
-        exit 0
-    fi
-    sleep 5
-done
-exit 1
-"""
                     def restoreScript = """
-sudo touch ${nginxConfigFile}
-if ! sudo grep -q 'service_url' ${nginxConfigFile}; then
-    echo 'set \$service_url http://127.0.0.1:${servicePort};' | sudo tee ${nginxConfigFile} > /dev/null
-fi
-sudo sed -i 's|set \$service_url http://127.0.0.1:[0-9]*|set \$service_url http://127.0.0.1:${servicePort}|g' ${nginxConfigFile}
-sudo nginx -s reload
-"""
-                    writeFile file: 'health_check.sh', text: healthCheckScript
+                    sudo touch ${nginxConfigFile}
+                    if ! sudo grep -q 'service_url' ${nginxConfigFile}; then
+                        echo 'set \$service_url http://127.0.0.1:${servicePort};' | sudo tee ${nginxConfigFile} > /dev/null
+                    fi
+                    sudo sed -i 's|set \$service_url http://127.0.0.1:[0-9]*|set \$service_url http://127.0.0.1:${servicePort}|g' ${nginxConfigFile}
+                    sudo nginx -s reload
+                    """
                     writeFile file: 'restore_nginx.sh', text: restoreScript
 
                     withCredentials([sshUserPrivateKey(credentialsId: 'oci-ssh-key',
                                      keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                         sh '''
-                            echo "===> Health Check Service..."
-                            ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER"@168.107.42.66 'bash -s' < health_check.sh
-
                             echo "===> Restore Nginx -> Service..."
                             ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER"@168.107.42.66 'bash -s' < restore_nginx.sh
                         '''
