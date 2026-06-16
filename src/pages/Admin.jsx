@@ -233,7 +233,7 @@ function PostForm({ initial, submitLabel, onSubmit, onCancel, categories = [], e
         compressed.push(dataUrlToFile(dataUrl, `${Date.now()}-${f.name || 'image'}.jpg`));
       }
       const urls = await uploadImages(compressed);
-      const md = urls.map((u) => `\n\n![](${u})\n\n`).join('');
+      const md = urls.map((u) => `![](${u})\n\n`).join('');
       insertAtCursor(md);
     } catch (err) {
       setError(err?.response?.data?.err || err?.message || '이미지 업로드에 실패했어요.');
