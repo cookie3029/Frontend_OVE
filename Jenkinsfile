@@ -145,7 +145,7 @@ pipeline {
                     env.FAILED_STATE_NAME = 'Deploy Service Container'
 
                     def serviceContainer = (env.TARGET_BRANCH == 'main') ? 'frontend'     : 'frontend-dev'
-                    def servicePort      = (env.TARGET_BRANCH == 'main') ? 5173          : 5004
+                    def servicePort      = (env.TARGET_BRANCH == 'main') ? 5173          : 5174
                     env.SERVICE_CONTAINER = serviceContainer
                     env.SERVICE_PORT      = "${servicePort}"
 
