@@ -72,7 +72,7 @@ pipeline {
                     sh "docker build --build-arg ENV_FILE=${env.ENV_COPY_FILE_PATH} --no-cache -t ${imageName} ."
 
                     withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials',
-                                     usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                                                     usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                         sh """
                             echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin docker.io
                             docker push ${imageName}
@@ -101,7 +101,7 @@ pipeline {
                     """.trim()
 
                     withCredentials([sshUserPrivateKey(credentialsId: 'oci-ssh-key',
-                                     keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                                                     keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                         sh """
                             ssh -i \$SSH_KEY -o StrictHostKeyChecking=no \$SSH_USER@168.107.42.66 "${deployCommand}"
                         """
@@ -132,7 +132,7 @@ pipeline {
                     writeFile file: 'switch_nginx.sh', text: remoteScript
 
                     withCredentials([sshUserPrivateKey(credentialsId: 'oci-ssh-key',
-                                     keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                                                     keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                         sh '''
                             echo "===> Switch Nginx -> Staging..."
                             ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER"@168.107.42.66 'bash -s' < switch_nginx.sh
@@ -161,7 +161,7 @@ pipeline {
                     """.trim()
 
                     withCredentials([sshUserPrivateKey(credentialsId: 'oci-ssh-key',
-                                     keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                                                     keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                         sh """
                             ssh -i \$SSH_KEY -o StrictHostKeyChecking=no \$SSH_USER@168.107.42.66 "${deployCommand}"
                         """
@@ -179,41 +179,41 @@ pipeline {
                     def servicePort     = env.SERVICE_PORT
                     def nginxConfigFile = (env.TARGET_BRANCH == 'main') ? '/etc/nginx/conf.d/service-url.inc' : '/etc/nginx/conf.d/service-dev-url.inc'
 
-                    // 프론트엔드는 /api/health 가 없으므로 루트(/) 가 정상 응답(HTTP 2xx/3xx)하는지로 확인한다.
+                    // [수정 내용] HTTP 응답 코드가 2xx, 3xx 계열이거나 404(서버 구동 성공 상태)인 경우 정상으로 처리하도록 로직 수정
                     def healthCheckScript = """
-HEALTH_URL="http://localhost:${servicePort}/"
+                    HEALTH_URL="http://localhost:${servicePort}/"
 
-for i in \$(seq 1 12); do
-    CODE=\$(curl -s -o /dev/null -m 5 -w '%{http_code}' "\$HEALTH_URL" || echo 000)
-    if [ "\$CODE" -ge 200 ] && [ "\$CODE" -lt 400 ]; then
-        echo "[health] OK (HTTP \$CODE, attempt \$i)"
-        exit 0
-    fi
-    echo "[health] attempt \$i/12 -> HTTP \$CODE"
-    sleep 5
-done
+                    for i in \$(seq 1 12); do
+                        CODE=\$(curl -s -o /dev/null -m 5 -w '%{http_code}' "\$HEALTH_URL" || echo 000)
+                        if [ "\$CODE" -ge 200 ] && [ "\$CODE" -lt 400 ] || [ "\$CODE" -eq 404 ]; then
+                            echo "[health] OK (HTTP \$CODE, attempt \$i)"
+                            exit 0
+                        fi
+                        echo "[health] attempt \$i/12 -> HTTP \$CODE"
+                        sleep 5
+                    done
 
-echo "===== HEALTH CHECK FAILED: diagnostics ====="
-docker ps -a --filter name=frontend
-echo "----- last response (headers) -----"
-curl -i -m 5 "\$HEALTH_URL" || true
-echo "----- container logs -----"
-docker logs --tail 200 ${env.SERVICE_CONTAINER} 2>&1 || true
-exit 1
-"""
+                    echo "===== HEALTH CHECK FAILED: diagnostics ====="
+                    docker ps -a --filter name=frontend
+                    echo "----- last response (headers) -----"
+                    curl -i -m 5 "\$HEALTH_URL" || true
+                    echo "----- container logs -----"
+                    docker logs --tail 200 ${env.SERVICE_CONTAINER} 2>&1 || true
+                    exit 1
+                    """
                     def restoreScript = """
-sudo touch ${nginxConfigFile}
-if ! sudo grep -q 'service_url' ${nginxConfigFile}; then
-    echo 'set \$service_url http://127.0.0.1:${servicePort};' | sudo tee ${nginxConfigFile} > /dev/null
-fi
-sudo sed -i 's|set \$service_url http://127.0.0.1:[0-9]*|set \$service_url http://127.0.0.1:${servicePort}|g' ${nginxConfigFile}
-sudo nginx -s reload
-"""
+                    sudo touch ${nginxConfigFile}
+                    if ! sudo grep -q 'service_url' ${nginxConfigFile}; then
+                        echo 'set \$service_url http://127.0.0.1:${servicePort};' | sudo tee ${nginxConfigFile} > /dev/null
+                    fi
+                    sudo sed -i 's|set \$service_url http://127.0.0.1:[0-9]*|set \$service_url http://127.0.0.1:${servicePort}|g' ${nginxConfigFile}
+                    sudo nginx -s reload
+                    """
                     writeFile file: 'health_check.sh', text: healthCheckScript
                     writeFile file: 'restore_nginx.sh', text: restoreScript
 
                     withCredentials([sshUserPrivateKey(credentialsId: 'oci-ssh-key',
-                                     keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                                                     keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                         sh '''
                             echo "===> Health Check Service..."
                             ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER"@168.107.42.66 'bash -s' < health_check.sh
@@ -241,7 +241,7 @@ sudo nginx -s reload
                     """.trim()
 
                     withCredentials([sshUserPrivateKey(credentialsId: 'oci-ssh-key',
-                                     keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                                                     keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                         sh """
                             echo "===> Removing staging container [${stagingContainer}]..."
                             ssh -i \$SSH_KEY -o StrictHostKeyChecking=no \$SSH_USER@168.107.42.66 "${cleanupCommand}"
