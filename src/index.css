@@ -1,0 +1,70 @@
+@import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Dokdo&family=Dongle&family=Gaegu&family=Gowun+Dodum&family=IBM+Plex+Sans+KR&family=Mochiy+Pop+One&family=Nanum+Gothic&family=Noto+Sans+KR:wght@900&family=Noto+Serif+JP&display=swap');
+@import "tailwindcss";
+
+/* ===== 테마 토큰 ===== */
+/* 기본(다크). <html> 에 .light 가 붙으면 라이트 값으로 전환됩니다. */
+:root {
+  --bg: #050814;
+  --bg-2: #070b1a;
+  --surface: #0e1326;
+  --surface-2: #151b30;
+  --input-bg: rgba(2, 6, 23, 0.5);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-soft: #64748b;
+  --nav-bg: rgba(8, 13, 26, 0.6);
+}
+
+html.light {
+  --bg: #f4f2fb;
+  --bg-2: #ece9f8;
+  --surface: #ffffff;
+  --surface-2: #ffffff;
+  --input-bg: #ffffff;
+  --border: rgba(124, 109, 242, 0.16);
+  --border-strong: rgba(124, 109, 242, 0.30);
+  --text: #1e293b;
+  --text-muted: #475569;
+  --text-soft: #94a3b8;
+  --nav-bg: rgba(255, 255, 255, 0.72);
+}
+
+/* 일반 스크롤 비활성화: 화면은 풀페이지 페이드 전환으로만 이동 */
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* 테마 전환 시에만(토글하는 순간) 색이 찬찬히 바뀌도록.
+   html.theme-animating 클래스가 붙어 있는 동안에만 트랜지션이 적용되고,
+   전환이 끝나면 클래스를 떼어 평소 hover 등에는 영향을 주지 않습니다. */
+html.theme-animating,
+html.theme-animating *,
+html.theme-animating *::before,
+html.theme-animating *::after {
+  transition: background-color 0.5s ease, border-color 0.5s ease, color 0.5s ease,
+    fill 0.5s ease, stroke 0.5s ease !important;
+}
+
+.mochiy-pop-one-regular {
+  font-family: "Mochiy Pop One", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+.font_korean {
+  font-family: "Gowun Dodum", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+.black-han-sans-regular {
+  font-family: "Black Han Sans", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+}
