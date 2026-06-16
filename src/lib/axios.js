@@ -5,7 +5,8 @@ import axios from "axios";
 //  - 없으면 "" → 동일 출처. 이때 /api/* 요청은 vercel.json 의 rewrite 가 백엔드로 프록시합니다.
 //  - 로컬 개발은 .env.local 에 VITE_API_BASE_URL=http://127.0.0.1:5000 을 넣어 쓰세요.
 const axiosInstance = axios.create({
-  baseURL: "http://168.107.42.66:5000",
+  // 🔗 [수정] 하드코딩된 IP:5000을 지우고 Nginx 프록시 경로인 "/api"로 설정합니다.
+  baseURL: "/api", 
   headers: {
     Accept: "*/*",
     "Content-Type": "application/json",
