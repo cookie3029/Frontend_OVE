@@ -42,10 +42,10 @@ pipeline {
                     def stagingPort = (env.TARGET_BRANCH == 'main') ? '5174' : '5178'
 
                     def originalContent = readFile(envFilePath)
-                    
+
                     // 1. 서버 빌드 포트는 5173 고정이므로 안전하게 치환 유지
                     def modifiedContent = originalContent.replaceAll(/(?<=\b)PORT=.*/, "PORT=5173")
-                    
+
                     // 2. 컨테이너 외부 배포 환경을 위해 호스트 설정을 0.0.0.0으로 변경 (Health Check 통과용)
                     modifiedContent = modifiedContent.replaceAll(/(?<=\b)END_POINT=.*/, "END_POINT=0.0.0.0")
                     modifiedContent = modifiedContent.replaceAll(/(?<=\b)HOST=.*/, "HOST=0.0.0.0")
@@ -116,22 +116,26 @@ pipeline {
                 script {
                     env.FAILED_STATE_NAME = 'Switch Nginx to Staging'
 
-                    def stagingPort      = env.STAGING_PORT
-                    def nginxConfigFile  = (env.TARGET_BRANCH == 'main') ? '/etc/nginx/conf.d/service-url.inc' : '/etc/nginx/conf.d/service-dev-url.inc'
-                    
-                    // Jenkins가 이스케이프에 실패하지 않도록 순수 문자열 결합 방식으로 안전하게 조립합니다.
-                    def switchCommand = "sudo touch " + nginxConfigFile + "; " +
-                                        "if ! sudo grep -q 'service_url' " + nginxConfigFile + "; then " +
-                                        "echo 'set \$service_url http://127.0.0.1:" + stagingPort + ";' | sudo tee " + nginxConfigFile + " > /dev/null; " +
-                                        "fi; " +
-                                        "sudo sed -i 's|set \$service_url http://127.0.0.1:[0-9]*|set \$service_url http://127.0.0.1:" + stagingPort + "|g' " + nginxConfigFile + " && " +
-                                        "sudo nginx -s reload"
+                    def stagingPort     = env.STAGING_PORT
+                    def nginxConfigFile = (env.TARGET_BRANCH == 'main') ? '/etc/nginx/conf.d/service-url.inc' : '/etc/nginx/conf.d/service-dev-url.inc'
+
+                    // 원격에서 실행할 스크립트를 파일로 작성한다.
+                    // \$service_url -> Groovy가 리터럴 $service_url 로 만들고, 원격 bash에서는 작은따옴표 안이라 그대로 유지됨.
+                    def remoteScript = """
+sudo touch ${nginxConfigFile}
+if ! sudo grep -q 'service_url' ${nginxConfigFile}; then
+    echo 'set \$service_url http://127.0.0.1:${stagingPort};' | sudo tee ${nginxConfigFile} > /dev/null
+fi
+sudo sed -i 's|set \$service_url http://127.0.0.1:[0-9]*|set \$service_url http://127.0.0.1:${stagingPort}|g' ${nginxConfigFile}
+sudo nginx -s reload
+"""
+                    writeFile file: 'switch_nginx.sh', text: remoteScript
 
                     withCredentials([sshUserPrivateKey(credentialsId: 'oci-ssh-key',
                                      keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                         sh '''
-                            echo "===> Switch Nginx → Staging Port ''' + stagingPort + '''..."
-                            ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER"@168.107.42.66 "''' + switchCommand + '''"
+                            echo "===> Switch Nginx -> Staging..."
+                            ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER"@168.107.42.66 'bash -s' < switch_nginx.sh
                         '''
                     }
                 }
@@ -172,26 +176,38 @@ pipeline {
                 script {
                     env.FAILED_STATE_NAME = 'Health Check Service & Restore Nginx'
 
-                    def servicePort      = env.SERVICE_PORT
-                    def nginxConfigFile  = (env.TARGET_BRANCH == 'main') ? '/etc/nginx/conf.d/service-url.inc' : '/etc/nginx/conf.d/service-dev-url.inc'
-                    def healthCheckCommand = "for i in \\\$(seq 1 12); do if curl -s http://localhost:${servicePort}/api/health | grep -q 'success'; then exit 0; fi; sleep 5; done; exit 1"
-                    
-                    // 순수 문자열 결합 방식으로 탈출 문자($) 완벽 격리
-                    def restoreCommand = "sudo touch " + nginxConfigFile + "; " +
-                                         "if ! sudo grep -q 'service_url' " + nginxConfigFile + "; then " +
-                                         "echo 'set \$service_url http://127.0.0.1:" + servicePort + ";' | sudo tee " + nginxConfigFile + " > /dev/null; " +
-                                         "fi; " +
-                                         "sudo sed -i 's|set \$service_url http://127.0.0.1:[0-9]*|set \$service_url http://127.0.0.1:" + servicePort + "|g' " + nginxConfigFile + " && " +
-                                         "sudo nginx -s reload"
+                    def servicePort     = env.SERVICE_PORT
+                    def nginxConfigFile = (env.TARGET_BRANCH == 'main') ? '/etc/nginx/conf.d/service-url.inc' : '/etc/nginx/conf.d/service-dev-url.inc'
+
+                    // \$(seq ...) 는 원격 bash가 실행해야 하므로 작은따옴표 밖에 둔다.
+                    def healthCheckScript = """
+for i in \$(seq 1 12); do
+    if curl -s http://localhost:${servicePort}/api/health | grep -q 'success'; then
+        exit 0
+    fi
+    sleep 5
+done
+exit 1
+"""
+                    def restoreScript = """
+sudo touch ${nginxConfigFile}
+if ! sudo grep -q 'service_url' ${nginxConfigFile}; then
+    echo 'set \$service_url http://127.0.0.1:${servicePort};' | sudo tee ${nginxConfigFile} > /dev/null
+fi
+sudo sed -i 's|set \$service_url http://127.0.0.1:[0-9]*|set \$service_url http://127.0.0.1:${servicePort}|g' ${nginxConfigFile}
+sudo nginx -s reload
+"""
+                    writeFile file: 'health_check.sh', text: healthCheckScript
+                    writeFile file: 'restore_nginx.sh', text: restoreScript
 
                     withCredentials([sshUserPrivateKey(credentialsId: 'oci-ssh-key',
                                      keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                         sh '''
-                            echo "===> Health Check Service (Port ''' + servicePort + ''')..."
-                            ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER"@168.107.42.66 "''' + healthCheckCommand + '''"
+                            echo "===> Health Check Service..."
+                            ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER"@168.107.42.66 'bash -s' < health_check.sh
 
-                            echo "===> Restore Nginx → Service Port ''' + servicePort + '''..."
-                            ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER"@168.107.42.66 "''' + restoreCommand + '''"
+                            echo "===> Restore Nginx -> Service..."
+                            ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER"@168.107.42.66 'bash -s' < restore_nginx.sh
                         '''
                     }
                 }
