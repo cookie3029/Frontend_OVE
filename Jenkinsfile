@@ -122,13 +122,13 @@ pipeline {
                     // 원격에서 실행할 스크립트를 파일로 작성한다.
                     // \$service_url -> Groovy가 리터럴 $service_url 로 만들고, 원격 bash에서는 작은따옴표 안이라 그대로 유지됨.
                     def remoteScript = """
-sudo touch ${nginxConfigFile}
-if ! sudo grep -q 'service_url' ${nginxConfigFile}; then
-    echo 'set \$service_url http://127.0.0.1:${stagingPort};' | sudo tee ${nginxConfigFile} > /dev/null
-fi
-sudo sed -i 's|set \$service_url http://127.0.0.1:[0-9]*|set \$service_url http://127.0.0.1:${stagingPort}|g' ${nginxConfigFile}
-sudo nginx -s reload
-"""
+                    sudo touch ${nginxConfigFile}
+                    if ! sudo grep -q 'service_url' ${nginxConfigFile}; then
+                        echo 'set \$service_url http://127.0.0.1:${stagingPort};' | sudo tee ${nginxConfigFile} > /dev/null
+                    fi
+                    sudo sed -i 's|set \$service_url http://127.0.0.1:[0-9]*|set \$service_url http://127.0.0.1:${stagingPort}|g' ${nginxConfigFile}
+                    sudo nginx -s reload
+                    """
                     writeFile file: 'switch_nginx.sh', text: remoteScript
 
                     withCredentials([sshUserPrivateKey(credentialsId: 'oci-ssh-key',

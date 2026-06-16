@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react' // 👈 'react-plugin'을 'plugin-react
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
+  base: '/',
   plugins: [
     react(),
     tailwindcss(),
