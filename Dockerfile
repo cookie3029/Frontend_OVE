@@ -1,5 +1,5 @@
 # 예시 Dockerfile 구조 점검
-FROM node:22.2.0
+FROM node:22.13.0
 
 WORKDIR /app
 COPY package.json yarn.lock ./
