@@ -155,19 +155,6 @@ export default function NewsDetail() {
           )}
         </div>
 
-        {/* 히어로: 카테고리 그라데이션 배너 (사진은 본문 안에 인라인으로 표시) */}
-        <div
-          className="relative w-full aspect-16/7 rounded-2xl overflow-hidden mt-4 shadow-[0_8px_30px_rgba(124,109,242,0.18)]"
-          style={{ backgroundImage: `linear-gradient(135deg, ${item.gradient[0]}, ${item.gradient[1]})` }}
-        >
-          <div
-            className="absolute inset-0 opacity-40 mix-blend-overlay"
-            style={{ backgroundImage: 'radial-gradient(circle at 28% 22%, #fff, transparent 60%)' }}
-          />
-          <span className="absolute left-5 top-4 text-white/85 font-black text-sm tracking-[0.2em]">DAY:OVE</span>
-          <Sparkle className="absolute right-5 bottom-5 w-10 h-10 text-white/70" />
-        </div>
-
         {/* 메타 + 제목 */}
         <div className="mt-7">
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-violet-500 text-white text-xs font-bold tracking-wide">
